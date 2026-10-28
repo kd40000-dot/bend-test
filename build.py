@@ -50,7 +50,7 @@ def repack(src, dst, patch_dex=False, remove_old_signatures=False):
             zi.create_system = entry.create_system
             zi.create_version = entry.create_version
             zi.extract_version = entry.extract_version
-            if name == 'resources.arsc' and zi.compress_type == zipfile.ZIP_STORED:
+            if zi.compress_type == zipfile.ZIP_STORED:
                 current = zout.fp.tell()
                 header_len = 30 + len(name.encode('utf8'))
                 pad = (-current - header_len) % 4
@@ -186,6 +186,13 @@ def check_apk(path):
             handle.seek(entry.header_offset + 26)
             n, x = struct.unpack('<HH', handle.read(4))
         assert (entry.header_offset + 30 + n + x) % 4 == 0
+        for stored in z.infolist():
+            if stored.compress_type != zipfile.ZIP_STORED:
+                continue
+            with open(path, 'rb') as fh:
+                fh.seek(stored.header_offset + 26)
+                name_len, extra_len = struct.unpack('<HH', fh.read(4))
+            assert (stored.header_offset + 30 + name_len + extra_len) % 4 == 0
         dex = z.read('classes.dex')
         assert hashlib.sha1(dex[32:]).digest() == dex[12:32]
     subprocess.run(['jarsigner', '-verify', str(path)], check=True,
