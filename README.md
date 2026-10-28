@@ -26,3 +26,18 @@ To update installations using the same patch certificate, keep your generated `p
 
 ## Validation
 The patch expects exactly one target lifecycle start and stop call and refuses other versions. After building, check the app on a physical device by starting an exercise countdown, switching to another app for 30 seconds, and returning. If it still crashes, capture the beginning of an Android logcat crash stacktrace to separate signature-related crashes from the timer modification.
+
+## Startup investigation — October 28, 2026
+
+**Do not treat v2 as working.** On an Android 16 Fairphone, the user reports the splash screen immediately returns to the launcher. The log shows:
+
+```
+14:06:52.194  nativeloader: Load .../lib/arm64/libyrf.so ... ok
+14:06:52.209  System.exit called, status: 0
+14:06:52.209  AndroidRuntime: VM exiting with result code 0
+14:06:52.225  Process com.bowerydigital.bend has died
+```
+
+The original and v2 APK ZIP contents differ only in `classes.dex` and `META-INF` signing files. The original `lib/arm64-v8a/libyrf.so` is byte-for-byte unchanged. Its ELF exports `JNI_OnLoad` and its strings include references to `PackageManager`, `getPackageInfo`, `CertificateFactory`, `X509Certificate`, and `MessageDigest`. This is **consistent** with a native certificate/integrity check but does not by itself prove the cause. Check signature verification and native startup behavior before attempting further releases.
+
+Next diagnostic control: install a separately signed **unmodified** (no DEX changes) APK, using the same certificate as v2, to determine whether re-signing alone triggers the exit. Then trace the `System.exit(0)` call stack (via debugger/hook or static tracing), and check whether it originates from the native library or its caller. Preserve the user's data and original APK. No v3 release is claimed to work.
