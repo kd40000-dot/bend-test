@@ -93,7 +93,7 @@ def sign_v1(src, dst, key, password):
 
 def eocd_offset(apk):
     for i in range(len(apk)-22, max(-1, len(apk)-22-65536), -1):
-        if (apk[i:i+4] == b'PK\\x05\\x06'
+        if (apk[i:i+4] == b'PK\x05\x06'
                 and i + 22 + struct.unpack_from('<H', apk, i+20)[0] == len(apk)):
             return i
     raise ValueError('ZIP end of central directory not found')
@@ -104,7 +104,7 @@ def apk_digest(sections):
         for pos in range(0, len(section), CHUNK_SIZE):
             part = section[pos:pos+CHUNK_SIZE]
             chunks.append(hashlib.sha256(
-                b'\\xa5' + struct.pack('<I', len(part)) + part).digest())
+                b'\xa5' + struct.pack('<I', len(part)) + part).digest())
     return hashlib.sha256(b'Z' + struct.pack('<I', len(chunks))
                           + b''.join(chunks)).digest()
 
@@ -114,7 +114,7 @@ def sign_v2(src, dst, keyfile, password):
     original = pathlib.Path(src).read_bytes()
     eocd = eocd_offset(original)
     cd = struct.unpack_from('<I', original, eocd+16)[0]
-    if original[cd:cd+4] != b'PK\\x01\\x02':
+    if original[cd:cd+4] != b'PK\x01\x02':
         raise ValueError('Cannot sign unexpected ZIP layout')
     before = original[:cd]
     directory = original[cd:eocd]
@@ -141,7 +141,7 @@ def check_apk(path):
     data = pathlib.Path(path).read_bytes()
     end = eocd_offset(data)
     cd = struct.unpack_from('<I', data, end + 16)[0]
-    assert data[cd:cd+4] == b'PK\\x01\\x02'
+    assert data[cd:cd+4] == b'PK\x01\x02'
     assert data[cd-16:cd] == MAGIC
     size = struct.unpack_from('<Q', data, cd-24)[0]
     start = cd-size-8
