@@ -33,6 +33,37 @@ class Dex:
                 break
         return result, o
 
+    def method_name(self, index):
+        c, p, n = self.methods[index]
+        return self.types[c] + '->' + self.strings[n] + '(' + self.proto(p) + ')'
+
+    def get_code_offsets(self):
+        # Parse class_data_item method declarations, preserving original DEX IDs.
+        offsets = {}
+        class_count, class_off = self.ui(0x60), self.ui(0x64)
+        for class_index in range(class_count):
+            position = self.ui(class_off + 32 * class_index + 24)
+            if not position:
+                continue
+            counts = []
+            for _ in range(4):
+                value, position = self.leb(position)
+                counts.append(value)
+            for count in counts[:2]:
+                for _ in range(count):
+                    _, position = self.leb(position)
+                    _, position = self.leb(position)
+            for count in counts[2:]:
+                method_id = 0
+                for _ in range(count):
+                    delta, position = self.leb(position)
+                    method_id += delta
+                    _, position = self.leb(position)  # access_flags
+                    code_offset, position = self.leb(position)
+                    if code_offset:
+                        offsets[method_id] = code_offset
+        return offsets
+
     def proto(self, idx):
         _, _, off = self.protos[idx]
         if not off:
